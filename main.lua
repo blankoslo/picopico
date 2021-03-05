@@ -1,7 +1,20 @@
-monster_sprite = {x = 0, y = 0, w = 8, h = 8}
-sprites = {monster_sprite}
-player = {x = 1, y = 1, color = 11}
-entities = {{x = 1, y = 1, sprite = monster_sprite}, player}
+-- TODOs:
+-- - add bullet with direction
+-- - hit detect bullet
+-- - blood splat on bullet hit in direction
+-- - monster ai
+-- - rotate sprites
+-- - world map 
+-- - map entity: cactus, mountain, hay balls (? you know... ?)
+-- - collection detection on map entities
+--
+monster_sprite = {x = 0, y = 16, w = 16, h = 16}
+player_sprite = {x = 0, y = 0, w = 16, h = 16}
+sprites = {monster_sprite, player_sprite}
+monster = {x = 1, y = 10, type = "monster", sprite = monster_sprite}
+player = {x = 1, y = 30, type = "player", sprite = player_sprite}
+bullet = {x = 1, y = 40, type = "bullet", color = 5, angle = 60}
+entities = {monster, player}
 
 function intersect_box(b1, b2)
     return not ((b1.x >= b2.x + b2.w) or (b1.x + b1.w <= b2.x) or
@@ -10,8 +23,8 @@ end
 
 function intersect_pixels(e1, e2)
     local pixels = {}
-    local sp1 = (e1.sprite and e1.sprite.pixels) or {{x = e1.x, y = e1.y}}
-    local sp2 = (e2.sprite and e2.sprite.pixels) or {{x = e2.x, y = e2.y}}
+    local sp1 = (e1.sprite and e1.sprite.pixels) or {{x = 0, y = 0}}
+    local sp2 = (e2.sprite and e2.sprite.pixels) or {{x = 0, y = 0}}
     for p1 in all(sp1) do
         local x1 = p1.x + e1.x
         local y1 = p1.y + e1.y
@@ -33,7 +46,6 @@ function entity_as_box(e)
         w = e.sprite.w
         h = e.sprite.h
     end
-
     return {x = e.x, y = e.y, w = w, h = h}
 end
 
@@ -56,9 +68,9 @@ end
 function _init()
     for s in all(sprites) do
         local pixels = {}
-        for x = s.x, s.x + s.w - 1 do
-            for y = s.y, s.y + s.h - 1 do
-                if sget(x, y) ~= 0 then
+        for x = 0, s.w - 1 do
+            for y = 0, s.h - 1 do
+                if sget(x + s.x, y + s.y) ~= 0 then
                     add(pixels, {x = x, y = y})
                 end
             end
@@ -72,6 +84,7 @@ function _update60()
     local right = btn(1)
     local up = btn(2)
     local down = btn(3)
+    local action1 = btn(4)
 
     if left then
         player.x = player.x - 1
@@ -82,6 +95,7 @@ function _update60()
     elseif down then
         player.y = player.y + 1
     end
+
 end
 
 function _draw()
