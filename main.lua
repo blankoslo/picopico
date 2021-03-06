@@ -11,10 +11,14 @@
 monster_sprite = {x = 0, y = 16, w = 16, h = 16}
 player_sprite = {x = 0, y = 0, w = 16, h = 16}
 sprites = {monster_sprite, player_sprite}
+blood_sprites = {x = 16, y = 0, w = 8, h = 8, frames = 8}
+particle_sprites = {blood_sprites}
 monster = {x = 1, y = 10, type = "monster", sprite = monster_sprite}
 player = {x = 1, y = 30, type = "player", sprite = player_sprite}
 bullet = {x = 1, y = 40, type = "bullet", color = 5, angle = 60}
 entities = {monster, player}
+angles = {right = 270, left = 90, down = 180, up = 0}
+function print_coords(x, y) print("x:" .. x .. ";y:" .. y) end
 
 function intersect_box(b1, b2)
     return not ((b1.x >= b2.x + b2.w) or (b1.x + b1.w <= b2.x) or
@@ -65,6 +69,15 @@ function draw_entity(entity)
     end
 end
 
+function draw_splatter(x, y, angle, frame_percent)
+    for f = 0, flr(frame_percent) % blood_sprites.frames do
+        rectfill(x, y, x + 8, y + 8, 0)
+        sspr(blood_sprites.x + blood_sprites.w * f, blood_sprites.y,
+             blood_sprites.w, blood_sprites.h, x, y)
+    end
+
+end
+
 function _init()
     for s in all(sprites) do
         local pixels = {}
@@ -98,9 +111,14 @@ function _update60()
 
 end
 
+splatter_frame = 0
 function _draw()
     cls(0)
     for entity in all(entities) do draw_entity(entity) end
     local intersecting_pixels = intersect(entities[1], entities[2])
     for p in all(intersecting_pixels) do pset(p.x, p.y, 8) end
+
+    -- splatter test
+    splatter_frame = splatter_frame + 0.1
+    draw_splatter(10, 5, angles.up, splatter_frame)
 end
