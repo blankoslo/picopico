@@ -13,7 +13,8 @@ player_sprite = {x = 0, y = 0, w = 16, h = 16}
 sprites = {monster_sprite, player_sprite}
 blood_sprites = {x = 16, y = 0, w = 8, h = 8, frames = 8}
 particle_sprites = {blood_sprites}
-monster = {x = 1, y = 10, type = "monster", sprite = monster_sprite}
+shooting_sprites = {x = 16, y = 16, w = 8, h=8, frames = 5}
+monster = {x = 20, y = 30, type = "monster", sprite = monster_sprite}
 player = {x = 1, y = 30, type = "player", sprite = player_sprite}
 bullet = {x = 1, y = 40, type = "bullet", color = 5, angle = 60}
 entities = {monster, player}
@@ -78,6 +79,16 @@ function draw_splatter(x, y, angle, frame_percent)
 
 end
 
+function draw_shooting(x, y, angle, frame_percent)
+
+    for f = 0, flr(frame_percent) % shooting_sprites.frames do
+        rectfill(x, y, x + 8, y + 8, 0)
+        sspr(shooting_sprites.x + shooting_sprites.w * f, shooting_sprites.y,
+             shooting_sprites.w, shooting_sprites.h, x, y)
+    end
+
+end
+
 function _init()
     for s in all(sprites) do
         local pixels = {}
@@ -107,6 +118,8 @@ function _update60()
         player.y = player.y - 1
     elseif down then
         player.y = player.y + 1
+    elseif action1 then
+        draw_shooting(20, 15, angles.up, frame)
     end
 
 end
@@ -121,4 +134,5 @@ function _draw()
     -- splatter test
     splatter_frame = splatter_frame + 0.1
     draw_splatter(10, 5, angles.up, splatter_frame)
+    draw_shooting(20, 15, angles.up, splatter_frame)
 end
