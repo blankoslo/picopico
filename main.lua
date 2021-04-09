@@ -22,7 +22,7 @@ blood_sprites = {
 }
 shooting_sprites = {
     x = 16,
-    y = 16,
+    y = 8,
     w = 8,
     h = 8,
     enabled = false,
