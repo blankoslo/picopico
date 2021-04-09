@@ -20,7 +20,6 @@ blood_sprites = {
     frame_percent = 0,
     frames = 8
 }
-particle_sprites = {blood_sprites}
 shooting_sprites = {
     x = 16,
     y = 16,
@@ -30,9 +29,10 @@ shooting_sprites = {
     frame_percent = 0,
     frames = 5
 }
-monster = {x = 20, y = 30, type = "monster", sprite = monster_sprite}
-player = {x = 1, y = 30, type = "player", sprite = player_sprite}
-bullet = {x = 1, y = 40, type = "bullet", color = 5, angle = 60}
+bullet_hit = {x = 0, y = 0, did_hit = false}
+particle_sprites = {blood_sprites, shooting_sprites}
+monster = {x = 1, y = 30, type = "monster", sprite = monster_sprite}
+player = {x = -3, y = 50, type = "player", sprite = player_sprite}
 entities = {monster, player}
 angles = {right = 270, left = 90, down = 180, up = 0}
 function print_coords(x, y) print("x:" .. x .. ";y:" .. y) end
@@ -91,7 +91,7 @@ function draw_particle(sprite, x, y, angle, clear)
         local f = flr(sprite.frame_percent) % sprite.frames
         if clear then rectfill(x, y, x + 8, y + 8, 0) end
         sspr(sprite.x + sprite.w * f, sprite.y, sprite.w, sprite.h, x, y)
-        sprite.frame_percent = sprite.frame_percent + 0.1
+        sprite.frame_percent = sprite.frame_percent + 0.5
         if f == sprite.frames - 1 then
             sprite.enabled = false
             sprite.frame_percent = 0
@@ -114,6 +114,27 @@ function _init()
     end
 end
 
+function calculate_bullet_hit()
+    local bullet_relative_pixels = {}
+    local MAX_HEIGHT = player.y
+    for y = 0, MAX_HEIGHT do add(bullet_relative_pixels, {x = 0, y = y}) end
+    local bullet_entity = {
+        x = player.x + 12, -- gun is 12 from
+        y = 0,
+        h = MAX_HEIGHT,
+        w = 1,
+        sprite = {h = MAX_HEIGHT, w = 1, pixels = bullet_relative_pixels}
+    }
+    local intersecting_pixels = intersect(entities[1], bullet_entity)
+    local min_hit_y = 128
+    local did_hit = false
+    for p in all(intersecting_pixels) do
+        did_hit = true
+        if p.y < min_hit_y then min_hit_y = p.y end
+    end
+    return {did_hit = did_hit, x = player.x, y = min_hit_y}
+end
+
 function _update60()
     local left = btn(0)
     local right = btn(1)
@@ -131,6 +152,8 @@ function _update60()
         player.y = player.y + 1
     elseif action1 then
         shooting_sprites.enabled = true
+        bullet_hit = calculate_bullet_hit()
+        if bullet_hit.did_hit then blood_sprites.enabled = true end
     end
 
 end
@@ -138,9 +161,7 @@ end
 function _draw()
     cls(0)
     for entity in all(entities) do draw_entity(entity) end
-    local intersecting_pixels = intersect(entities[1], entities[2])
-    for p in all(intersecting_pixels) do pset(p.x, p.y, 8) end
 
-    draw_particle(blood_sprites, 10, 5, angles.up, true)
-    draw_particle(shooting_sprites, player.x + 8, player.y - 9, angles.up)
+    draw_particle(blood_sprites, bullet_hit.x + 9, bullet_hit.y - 8, angles.up)
+    draw_particle(shooting_sprites, player.x + 8, player.y - 8, angles.up)
 end
