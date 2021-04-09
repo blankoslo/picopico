@@ -162,6 +162,7 @@ function _draw()
     cls(0)
     for entity in all(entities) do draw_entity(entity) end
 
+    if shooting_sprites.enabled then sfx(0) end
     draw_particle(blood_sprites, bullet_hit.x + 9, bullet_hit.y - 8, angles.up)
     draw_particle(shooting_sprites, player.x + 8, player.y - 8, angles.up)
 end
