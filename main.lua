@@ -11,9 +11,25 @@
 monster_sprite = {x = 0, y = 16, w = 16, h = 16}
 player_sprite = {x = 0, y = 0, w = 16, h = 16}
 sprites = {monster_sprite, player_sprite}
-blood_sprites = {x = 16, y = 0, w = 8, h = 8, frames = 8}
+blood_sprites = {
+    x = 16,
+    y = 0,
+    w = 8,
+    h = 8,
+    enabled = true,
+    frame_percent = 0,
+    frames = 8
+}
 particle_sprites = {blood_sprites}
-shooting_sprites = {x = 16, y = 16, w = 8, h=8, frames = 5}
+shooting_sprites = {
+    x = 16,
+    y = 16,
+    w = 8,
+    h = 8,
+    enabled = false,
+    frame_percent = 0,
+    frames = 5
+}
 monster = {x = 20, y = 30, type = "monster", sprite = monster_sprite}
 player = {x = 1, y = 30, type = "player", sprite = player_sprite}
 bullet = {x = 1, y = 40, type = "bullet", color = 5, angle = 60}
@@ -70,21 +86,16 @@ function draw_entity(entity)
     end
 end
 
-function draw_splatter(x, y, angle, frame_percent)
-    for f = 0, flr(frame_percent) % blood_sprites.frames do
-        rectfill(x, y, x + 8, y + 8, 0)
-        sspr(blood_sprites.x + blood_sprites.w * f, blood_sprites.y,
-             blood_sprites.w, blood_sprites.h, x, y)
-    end
-
-end
-
-function draw_shooting(x, y, angle, frame_percent)
-
-    for f = 0, flr(frame_percent) % shooting_sprites.frames do
-        rectfill(x, y, x + 8, y + 8, 0)
-        sspr(shooting_sprites.x + shooting_sprites.w * f, shooting_sprites.y,
-             shooting_sprites.w, shooting_sprites.h, x, y)
+function draw_particle(sprite, x, y, angle, clear)
+    if sprite.enabled then
+        local f = flr(sprite.frame_percent) % sprite.frames
+        if clear then rectfill(x, y, x + 8, y + 8, 0) end
+        sspr(sprite.x + sprite.w * f, sprite.y, sprite.w, sprite.h, x, y)
+        sprite.frame_percent = sprite.frame_percent + 0.1
+        if f == sprite.frames - 1 then
+            sprite.enabled = false
+            sprite.frame_percent = 0
+        end
     end
 
 end
@@ -119,20 +130,17 @@ function _update60()
     elseif down then
         player.y = player.y + 1
     elseif action1 then
-        draw_shooting(20, 15, angles.up, frame)
+        shooting_sprites.enabled = true
     end
 
 end
 
-splatter_frame = 0
 function _draw()
     cls(0)
     for entity in all(entities) do draw_entity(entity) end
     local intersecting_pixels = intersect(entities[1], entities[2])
     for p in all(intersecting_pixels) do pset(p.x, p.y, 8) end
 
-    -- splatter test
-    splatter_frame = splatter_frame + 0.1
-    draw_splatter(10, 5, angles.up, splatter_frame)
-    draw_shooting(20, 15, angles.up, splatter_frame)
+    draw_particle(blood_sprites, 10, 5, angles.up, true)
+    draw_particle(shooting_sprites, player.x + 8, player.y - 9, angles.up)
 end
