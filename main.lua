@@ -8,8 +8,8 @@
 -- - map entity: cactus, mountain, hay balls (? you know... ?)
 -- - collection detection on map entities
 --
-monster_sprite = {x = 0, y = 16, w = 16, h = 16}
-player_sprite = {x = 0, y = 0, w = 16, h = 16}
+monster_sprite = {x = 0, y = 16, r = 270, w = 16, h = 16}
+player_sprite = {x = 0, y = 0, r = 90, w = 16, h = 16}
 sprites = {monster_sprite, player_sprite}
 blood_sprites = {
     x = 16,
@@ -22,7 +22,7 @@ blood_sprites = {
 }
 shooting_sprites = {
     x = 16,
-    y = 16,
+    y = 8,
     w = 8,
     h = 8,
     enabled = false,
@@ -31,10 +31,11 @@ shooting_sprites = {
 }
 bullet_hit = {x = 0, y = 0, did_hit = false}
 particle_sprites = {blood_sprites, shooting_sprites}
-monster = {x = 1, y = 30, type = "monster", sprite = monster_sprite}
-player = {x = -3, y = 50, type = "player", sprite = player_sprite}
+monster = {x = 1, y = 30, r = 0, type = "monster", sprite = monster_sprite}
+player = {x = -3, y = 50, r = 0, type = "player", sprite = player_sprite}
 entities = {monster, player}
 angles = {right = 270, left = 90, down = 180, up = 0}
+
 function print_coords(x, y) print("x:" .. x .. ";y:" .. y) end
 
 function intersect_box(b1, b2)
@@ -79,8 +80,9 @@ end
 
 function draw_entity(entity)
     if (entity.sprite) then
-        sspr(entity.sprite.x, entity.sprite.y, entity.sprite.w, entity.sprite.h,
-             entity.x, entity.y)
+        spr_r(entity.sprite.x, entity.sprite.y, entity.x, entity.y,
+              entity.r + entity.sprite.r, entity.sprite.w / 8,
+              entity.sprite.h / 8)
     else
         pset(entity.x, entity.y, entity.color)
     end
@@ -141,11 +143,16 @@ function _update60()
     local up = btn(2)
     local down = btn(3)
     local action1 = btn(4)
+    local crab_mode = btn(5)
 
-    if left then
-        player.x = player.x - 1
-    elseif right then
+    if left and not crab_mode then
+        player.r = player.r - 10
+    elseif right and not crab_mode then
+        player.r = player.r + 10
+    elseif left and crab_mode then -- vi elsker crab mode
         player.x = player.x + 1
+    elseif right and crab_mode then
+        player.x = player.x - 1
     elseif up then
         player.y = player.y - 1
     elseif down then
@@ -165,4 +172,27 @@ function _draw()
     if shooting_sprites.enabled then sfx(0) end
     draw_particle(blood_sprites, bullet_hit.x + 9, bullet_hit.y - 8, angles.up)
     draw_particle(shooting_sprites, player.x + 8, player.y - 8, angles.up)
+end
+
+-- not our shit
+-- addendum dario: delevis our shit
+function spr_r(sx, sy, x, y, a, w, h)
+    sw = (w or 1) * 8
+    sh = (h or 1) * 8
+    x0 = flr(0.5 * sw)
+    y0 = flr(0.5 * sh)
+    a = a / 360
+    sa = sin(a)
+    ca = cos(a)
+    for ix = 0, sw - 1 do
+        for iy = 0, sh - 1 do
+            dx = ix - x0
+            dy = iy - y0
+            xx = flr(dx * ca - dy * sa + x0)
+            yy = flr(dx * sa + dy * ca + y0)
+            if (xx >= 0 and xx < sw and yy >= 0 and yy <= sh) then
+                pset(x + ix, y + iy, sget(sx + xx, sy + yy))
+            end
+        end
+    end
 end
