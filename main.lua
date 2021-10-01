@@ -31,16 +31,37 @@ shooting_sprites = {
 }
 bullet_hit = {x = 0, y = 0, r = 0, did_hit = false}
 particle_sprites = {blood_sprites, shooting_sprites}
-monster = {x = 59, y = 30, r = 270, type = "monster", sprite = monster_sprite}
+monsters = {
+    {
+        x = 59,
+        y = 30,
+        r = 270,
+        hp = 3,
+        type = "monster",
+        sprite = monster_sprite,
+        target = {x = 0, y = 0, timeout = 0}
+    }, {
+        x = 0,
+        y = 90,
+        r = 0,
+        hp = 3,
+        type = "monster",
+        sprite = monster_sprite,
+        target = {x = 0, y = 0, timeout = 0}
+    }
+}
 player = {x = 58, y = 58, r = 90, type = "player", sprite = player_sprite}
-entities = {monster, player}
+entities = {player}
+for monster in all(monsters) do add(entities, monster) end
 angles = {right = 270, left = 90, down = 180, up = 0}
 
 function print_coords(x, y) print("x:" .. x .. ";y:" .. y) end
 
 function intersect_box(b1, b2)
-    return not ((b1.x >= b2.x + b2.w) or (b1.x + b1.w <= b2.x) or
-               (b1.y >= b2.y + b2.h) or (b1.y + b1.h <= b2.y))
+    return not ((flr(b1.x) >= flr(b2.x) + b2.w) or
+               (flr(b1.x) + b1.w <= flr(b2.x)) or
+               (flr(b1.y) >= flr(b2.y) + b2.h) or
+               (flr(b1.y) + b1.h <= flr(b2.y)))
 end
 
 function intersect_pixels(e1, e2)
@@ -53,7 +74,7 @@ function intersect_pixels(e1, e2)
         for p2 in all(sp2) do
             local x2 = p2.x + e2.x
             local y2 = p2.y + e2.y
-            if (x1 == x2 and y1 == y2) then
+            if (flr(x1) == flr(x2) and flr(y1) == flr(y2)) then
                 add(pixels, {x = x1, y = y1})
             end
         end
@@ -150,15 +171,7 @@ end
 -- end
 
 function calculate_bullet_hit()
-    local monsters = {}
-    local player_entity = {}
-    for entity in all(entities) do
-        if (entity.type == "player") then
-            player_entity = entity;
-        else
-            add(monsters, entity)
-        end
-    end
+    local player_entity = player
 
     local gun_offset_x = 8
     local gun_offset_y = -4
@@ -224,6 +237,20 @@ function _update60()
         end
     end
 
+    for monster in all(monsters) do
+        monster.target.timeout = monster.target.timeout - 1
+        if monster.target.timeout <= 0 then
+            monster.target.timeout = 30
+            monster.target.x = player.x + flr(rnd() * 10) - 5
+            monster.target.y = player.y + flr(rnd() * 10) - 5
+        end
+        local target_x = monster.target.x
+        local target_y = monster.target.y
+        local angle = atan2(target_y - monster.y, target_x - monster.x)
+        monster.r = angle * 360 + monster.sprite.r
+        monster.x = cos(monster.r / 360 + 0.5) * 0.1 + monster.x
+        monster.y = -sin(monster.r / 360 + 0.5) * 0.1 + monster.y
+    end
 end
 
 function offset_rotation(offset_x, offset_y, entity)
@@ -262,7 +289,7 @@ function spr_r(sx, sy, x, y, a, w, h)
     sh = (h or 1) * 8
     x0 = flr(0.5 * sw)
     y0 = flr(0.5 * sh)
-    a = a / 360
+    a = (a or 0) / 360
     sa = sin(a)
     ca = cos(a)
     for ix = 0, sw - 1 do
