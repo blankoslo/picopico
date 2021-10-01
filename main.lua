@@ -16,7 +16,7 @@ blood_sprites = {
     y = 0,
     w = 8,
     h = 8,
-    enabled = true,
+    enabled = false,
     frame_percent = 0,
     frames = 8
 }
@@ -29,10 +29,10 @@ shooting_sprites = {
     frame_percent = 0,
     frames = 5
 }
-bullet_hit = {x = 0, y = 0, did_hit = false}
+bullet_hit = {x = 0, y = 0, r = 0, did_hit = false}
 particle_sprites = {blood_sprites, shooting_sprites}
-monster = {x = 1, y = 30, r = 0, type = "monster", sprite = monster_sprite}
-player = {x = -3, y = 50, r = 0, type = "player", sprite = player_sprite}
+monster = {x = 59, y = 30, r = 270, type = "monster", sprite = monster_sprite}
+player = {x = 58, y = 58, r = 90, type = "player", sprite = player_sprite}
 entities = {monster, player}
 angles = {right = 270, left = 90, down = 180, up = 0}
 
@@ -81,7 +81,7 @@ end
 function draw_entity(entity)
     if (entity.sprite) then
         spr_r(entity.sprite.x, entity.sprite.y, entity.x, entity.y,
-              entity.r + entity.sprite.r, entity.sprite.w / 8,
+              entity.r - entity.sprite.r, entity.sprite.w / 8,
               entity.sprite.h / 8)
     else
         pset(entity.x, entity.y, entity.color)
@@ -92,14 +92,26 @@ function draw_particle(sprite, x, y, angle, clear)
     if sprite.enabled then
         local f = flr(sprite.frame_percent) % sprite.frames
         if clear then rectfill(x, y, x + 8, y + 8, 0) end
-        sspr(sprite.x + sprite.w * f, sprite.y, sprite.w, sprite.h, x, y)
+        spr_r(sprite.x + sprite.w * f, sprite.y, x, y, angle, sprite.w / 8,
+              sprite.h / 8)
         sprite.frame_percent = sprite.frame_percent + 0.5
         if f == sprite.frames - 1 then
             sprite.enabled = false
             sprite.frame_percent = 0
         end
     end
+end
 
+function draw_hit_scan_debug_line(x, y, r)
+    dx = -cos(r / 360)
+    dy = sin(r / 360)
+
+    while true do
+        x = x + dx
+        y = y + dy
+        pset(flr(x), flr(y), 8)
+        if x < 0 or x > 128 or y < 0 or y > 128 then break end
+    end
 end
 
 function _init()
@@ -116,25 +128,75 @@ function _init()
     end
 end
 
+-- function calculate_bullet_hit_2()
+--     local bullet_relative_pixels = {}
+--     local MAX_HEIGHT = player.y
+--     for y = 0, MAX_HEIGHT do add(bullet_relative_pixels, {x = 0, y = y}) end
+--     local bullet_entity = {
+--         x = player.x + 12, -- gun is 12 from
+--         y = 0,
+--         h = MAX_HEIGHT,
+--         w = 1,
+--         sprite = {h = MAX_HEIGHT, w = 1, pixels = bullet_relative_pixels}
+--     }
+--     local intersecting_pixels = intersect(entities[1], bullet_entity)
+--     local min_hit_y = 128
+--     local did_hit = false
+--     for p in all(intersecting_pixels) do
+--         did_hit = true
+--         if p.y < min_hit_y then min_hit_y = p.y end
+--     end
+--     return {did_hit = did_hit, x = player.x, y = min_hit_y}
+-- end
+
 function calculate_bullet_hit()
-    local bullet_relative_pixels = {}
-    local MAX_HEIGHT = player.y
-    for y = 0, MAX_HEIGHT do add(bullet_relative_pixels, {x = 0, y = y}) end
-    local bullet_entity = {
-        x = player.x + 12, -- gun is 12 from
-        y = 0,
-        h = MAX_HEIGHT,
-        w = 1,
-        sprite = {h = MAX_HEIGHT, w = 1, pixels = bullet_relative_pixels}
-    }
-    local intersecting_pixels = intersect(entities[1], bullet_entity)
-    local min_hit_y = 128
-    local did_hit = false
-    for p in all(intersecting_pixels) do
-        did_hit = true
-        if p.y < min_hit_y then min_hit_y = p.y end
+    local monsters = {}
+    local player_entity = {}
+    for entity in all(entities) do
+        if (entity.type == "player") then
+            player_entity = entity;
+        else
+            add(monsters, entity)
+        end
     end
-    return {did_hit = did_hit, x = player.x, y = min_hit_y}
+
+    local gun_offset_x = 8
+    local gun_offset_y = -4
+    local rotated_init_coords = offset_rotation(gun_offset_x, gun_offset_y,
+                                                player_entity)
+    local r = player_entity.r
+    local x = rotated_init_coords.x
+    local y = rotated_init_coords.y
+
+    local dx = -cos(r / 360)
+    local dy = sin(r / 360)
+
+    while true do
+        x = x + dx
+        y = y + dy
+        for monster in all(monsters) do
+            local intersecting_pixels = intersect(monster, {
+                x = flr(x),
+                y = flr(y),
+                h = 1,
+                w = 1,
+                r = 0,
+                sprite = {h = 1, w = 1, pixels = {{x = 0, y = 0, r = 0}}}
+            })
+            if count(intersecting_pixels) > 0 then
+                local intersected_pixel = intersecting_pixels[1]
+                return {
+                    did_hit = true,
+                    x = intersected_pixel.x,
+                    y = intersected_pixel.y,
+                    r = r
+                }
+            end
+        end
+        if x < 0 or x > 128 or y < 0 or y > 128 then break end
+    end
+    return {did_hit = false, x = 0, y = 0}
+
 end
 
 function _update60()
@@ -145,33 +207,52 @@ function _update60()
     local action1 = btn(4)
     local crab_mode = btn(5)
 
-    if left and not crab_mode then
-        player.r = player.r - 10
-    elseif right and not crab_mode then
-        player.r = player.r + 10
-    elseif left and crab_mode then -- vi elsker crab mode
-        player.x = player.x + 1
-    elseif right and crab_mode then
+    if left and not crab_mode then player.r = player.r - 10 end
+    if right and not crab_mode then player.r = player.r + 10 end
+    if left and crab_mode then -- vi elsker crab mode
         player.x = player.x - 1
-    elseif up then
-        player.y = player.y - 1
-    elseif down then
-        player.y = player.y + 1
-    elseif action1 then
-        shooting_sprites.enabled = true
+    end
+    if right and crab_mode then player.x = player.x + 1 end
+    if up then player.y = player.y - 1 end
+    if down then player.y = player.y + 1 end
+    if action1 then
+        sfx(0)
         bullet_hit = calculate_bullet_hit()
-        if bullet_hit.did_hit then blood_sprites.enabled = true end
+        if bullet_hit.did_hit then
+            blood_sprites.enabled = true
+            sfx(13)
+        end
     end
 
 end
 
+function offset_rotation(offset_x, offset_y, entity)
+    -- RTFMØ LOlzzz
+    local x = entity.x - offset_x * cos(entity.r / 360) + offset_y *
+                  sin(entity.r / 360) + entity.sprite.w / 2
+    local y = entity.y + offset_y * cos(entity.r / 360) + offset_x *
+                  sin(entity.r / 360) + entity.sprite.h / 2
+    return {x = x, y = y}
+end
+
 function _draw()
     cls(0)
-    for entity in all(entities) do draw_entity(entity) end
-
-    if shooting_sprites.enabled then sfx(0) end
-    draw_particle(blood_sprites, bullet_hit.x + 9, bullet_hit.y - 8, angles.up)
+    for entity in all(entities) do
+        draw_entity(entity)
+        if entity.type == "player" then
+            gun_offset_x = 8
+            gun_offset_y = -4
+            local rotated_init_coords = offset_rotation(gun_offset_x,
+                                                        gun_offset_y, entity)
+            draw_hit_scan_debug_line(rotated_init_coords.x,
+                                     rotated_init_coords.y, entity.r)
+        end
+    end
+    if bullet_hit.did_hit then print("MOTA") end
+    draw_particle(blood_sprites, bullet_hit.x - 7, bullet_hit.y - 8,
+                  bullet_hit.r)
     draw_particle(shooting_sprites, player.x + 8, player.y - 8, angles.up)
+
 end
 
 -- not our shit
@@ -191,7 +272,8 @@ function spr_r(sx, sy, x, y, a, w, h)
             xx = flr(dx * ca - dy * sa + x0)
             yy = flr(dx * sa + dy * ca + y0)
             if (xx >= 0 and xx < sw and yy >= 0 and yy <= sh) then
-                pset(x + ix, y + iy, sget(sx + xx, sy + yy))
+                color = sget(sx + xx, sy + yy)
+                if color ~= 0 then pset(x + ix, y + iy, color) end
             end
         end
     end
