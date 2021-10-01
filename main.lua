@@ -9,6 +9,7 @@
 -- - collection detection on map entities
 --
 monster_sprite = {x = 0, y = 16, r = 270, w = 16, h = 16}
+monster_dead_sprite = {x = 64, y = 8, r = 270, w = 16, h = 24}
 player_sprite = {x = 0, y = 0, r = 90, w = 16, h = 16}
 sprites = {monster_sprite, player_sprite}
 blood_sprites = {
@@ -36,7 +37,7 @@ monsters = {
         x = 59,
         y = 30,
         r = 270,
-        hp = 3,
+        hp = 20,
         type = "monster",
         sprite = monster_sprite,
         target = {x = 0, y = 0, timeout = 0}
@@ -44,7 +45,7 @@ monsters = {
         x = 0,
         y = 90,
         r = 0,
-        hp = 3,
+        hp = 20,
         type = "monster",
         sprite = monster_sprite,
         target = {x = 0, y = 0, timeout = 0}
@@ -187,23 +188,42 @@ function calculate_bullet_hit()
     while true do
         x = x + dx
         y = y + dy
-        for monster in all(monsters) do
-            local intersecting_pixels = intersect(monster, {
-                x = flr(x),
-                y = flr(y),
-                h = 1,
-                w = 1,
-                r = 0,
-                sprite = {h = 1, w = 1, pixels = {{x = 0, y = 0, r = 0}}}
-            })
-            if count(intersecting_pixels) > 0 then
-                local intersected_pixel = intersecting_pixels[1]
-                return {
-                    did_hit = true,
-                    x = intersected_pixel.x,
-                    y = intersected_pixel.y,
-                    r = r
-                }
+        for entity in all(entities) do
+            if entity.type == "monster" then
+                local monster = entity
+                local intersecting_pixels =
+                    intersect(monster, {
+                        x = flr(x),
+                        y = flr(y),
+                        h = 1,
+                        w = 1,
+                        r = 0,
+                        sprite = {
+                            h = 1,
+                            w = 1,
+                            pixels = {{x = 0, y = 0, r = 0}}
+                        }
+                    })
+                if count(intersecting_pixels) > 0 then
+                    local intersected_pixel = intersecting_pixels[1]
+                    monster.hp = monster.hp - 1
+                    if monster.hp <= 0 then
+                        del(entities, entity)
+                        add(entities, {
+                            x = entity.x,
+                            y = entity.y,
+                            r = entity.r,
+                            type = "monster_dead",
+                            sprite = monster_dead_sprite
+                        })
+                    end
+                    return {
+                        did_hit = true,
+                        x = intersected_pixel.x,
+                        y = intersected_pixel.y,
+                        r = r
+                    }
+                end
             end
         end
         if x < 0 or x > 128 or y < 0 or y > 128 then break end
@@ -237,19 +257,22 @@ function _update60()
         end
     end
 
-    for monster in all(monsters) do
-        monster.target.timeout = monster.target.timeout - 1
-        if monster.target.timeout <= 0 then
-            monster.target.timeout = 30
-            monster.target.x = player.x + flr(rnd() * 10) - 5
-            monster.target.y = player.y + flr(rnd() * 10) - 5
+    for entity in all(entities) do
+        if entity.type == "monster" then
+            monster = entity
+            monster.target.timeout = monster.target.timeout - 1
+            if monster.target.timeout <= 0 then
+                monster.target.timeout = 30
+                monster.target.x = player.x + flr(rnd() * 10) - 5
+                monster.target.y = player.y + flr(rnd() * 10) - 5
+            end
+            local target_x = monster.target.x
+            local target_y = monster.target.y
+            local angle = atan2(target_y - monster.y, target_x - monster.x)
+            monster.r = angle * 360 + monster.sprite.r
+            monster.x = cos(monster.r / 360 + 0.5) * 0.1 + monster.x
+            monster.y = -sin(monster.r / 360 + 0.5) * 0.1 + monster.y
         end
-        local target_x = monster.target.x
-        local target_y = monster.target.y
-        local angle = atan2(target_y - monster.y, target_x - monster.x)
-        monster.r = angle * 360 + monster.sprite.r
-        monster.x = cos(monster.r / 360 + 0.5) * 0.1 + monster.x
-        monster.y = -sin(monster.r / 360 + 0.5) * 0.1 + monster.y
     end
 end
 
@@ -273,13 +296,16 @@ function _draw()
                                                         gun_offset_y, entity)
             draw_hit_scan_debug_line(rotated_init_coords.x,
                                      rotated_init_coords.y, entity.r)
+        elseif entity.type == "monster" then
+            print(entity.hp)
+        elseif entity.type == "monster_dead" then
+            print(entity.x)
         end
     end
     if bullet_hit.did_hit then print("MOTA") end
     draw_particle(blood_sprites, bullet_hit.x - 7, bullet_hit.y - 8,
                   bullet_hit.r)
     draw_particle(shooting_sprites, player.x + 8, player.y - 8, angles.up)
-
 end
 
 -- not our shit
